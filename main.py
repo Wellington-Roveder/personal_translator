@@ -3,13 +3,23 @@ import time
 
 import pyttsx3
 import speech_recognition as sr
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 if __name__ == "__main__":
-    translator = Translator()
+    translator = GoogleTranslator(source="en", target="pt")
     text_historic = []
 
     engine = pyttsx3.init()
+    engine.setProperty("rate", 175)  # addin natural speek
+    engine.setProperty("volume", 0.9)
+
+    voices = engine.getProperty("voices")
+    """founding a portuguese voice"""
+    for voice in voices:
+        if "portuguese" in voice.name.lower() or "brazil" in voice.name.lower():
+            engine.setProperty("voice", voice.id)
+            break
+
     ###adding a queue for translations for more otimization
     translation_queue = queue.Queue()
 
@@ -29,12 +39,12 @@ if __name__ == "__main__":
 
         try:
             """Instead of saying it here, we put the text in the queue."""
-            translation = translator.translate(text_en, dest="pt").text
+            translation = translator.translate(text_en)
             print(f"🇧🇷 Tradução: {translation}\n" + "-" * 40)
 
             translation_queue.put(translation)
         except Exception as e:  # noqa: BLE001
-            print(e)
+            print(f"[Erro na tradução] {e}")
             return
 
     r = sr.Recognizer()
@@ -46,6 +56,7 @@ if __name__ == "__main__":
         print("READ!")
 
     stop_listening = r.listen_in_background(mic, callback_audio)
+    last_status = time.time()
 
     try:
         while True:
@@ -55,7 +66,18 @@ if __name__ == "__main__":
                 engine.say(text_to_speak)
                 engine.runAndWait()
 
-            time.sleep(0.1)
+                # """using the text_historic for simultaneous translation"""
+                # if len(text_historic) >= 2:
+                # full_text = " ".join(text_historic)
+                # translation = translator.translate(full_text)
+
+            if time.time() - last_status > 5:
+                print(
+                    f"Fila: {translation_queue.qsize()} | Histórico: {len(text_historic)}"
+                )
+                last_status = time.time()
+
+            time.sleep(0.05)
     except KeyboardInterrupt:
         print("\nEnding...")
         stop_listening(wait_for_stop=False)
